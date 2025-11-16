@@ -1,11 +1,27 @@
-<script setup></script>
+<script setup>
+import { ref, onMounted } from 'vue'
+
+const backendResponse = ref(null)
+
+onMounted(async () => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/')
+    if (response.ok) {
+      backendResponse.value = await response.json()
+    } else {
+      backendResponse.value = { error: 'Failed to fetch data from backend' }
+    }
+  } catch (error) {
+    backendResponse.value = { error: 'Failed to connect to backend' }
+  }
+})
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <div v-if="backendResponse">
+    <h2>Backend Response:</h2>
+    <pre>{{ backendResponse }}</pre>
+  </div>
 </template>
 
 <style scoped></style>
