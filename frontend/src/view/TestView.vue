@@ -5,7 +5,7 @@ const backendResponse = ref(null)
 
 onMounted(async () => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/')
+    const response = await fetch('http://localhost:8000/message')
     if (response.ok) {
       backendResponse.value = await response.json()
     } else {
