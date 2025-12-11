@@ -1,47 +1,35 @@
 <script setup>
 import ChatInput from '../components/ChatInput.vue'
-import { ref, onMounted } from 'vue';
+import {onMounted, ref} from 'vue';
 
-//TODO: .env Datei erstellen
-//TODO: echte URL und API-Key eintragen
-const API_BASE_URL = '...';
-const API_KEY = '...';
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 const rooms = ref([]);
 const messages = ref([]);
 const selectedRoomId = ref(null);
 
-// Räume laden
-const loadRooms = () => {
-  var req = new XMLHttpRequest();
-  req.onreadystatechange = function () {
-    if (req.readyState == 4 && req.status == 200) {
-      var data = JSON.parse(req.responseText);
-      rooms.value = data;
-    }
+// Räume laden (via Fetch API)
+const loadRooms = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/rooms`);
+    if (!response.ok) throw new Error('Netzwerk Fehler');
+    rooms.value = await response.json();
+  } catch (error) {
+    console.error("Fehler beim Laden der Räume:", error);
   }
-  req.open("GET", API_BASE_URL + "/rooms");
-  req.setRequestHeader("Content-Type", "application/json");
-  req.setRequestHeader("api-key", API_KEY);
-  req.send();
 };
 
-// Nachrichten aus Räume laden
-const selectRoom = (roomId) => {
+// Nachrichten aus Räume laden (via Fetch API)
+const selectRoom = async (roomId) => {
   selectedRoomId.value = roomId;
   messages.value = [];
-
-  var req = new XMLHttpRequest();
-  req.onreadystatechange = function () {
-    if (req.readyState == 4 && req.status == 200) {
-      var data = JSON.parse(req.responseText);
-      messages.value = data;
-    }
+  try {
+    const response = await fetch(`${API_BASE_URL}/messages?RoomID=${roomId}`);
+    if (!response.ok) throw new Error('Netzwerk Fehler');
+    messages.value = await response.json();
+  } catch (error) {
+    console.error("Fehler beim Laden der Nachrichten:", error);
   }
-  req.open("GET", API_BASE_URL + "/messages?RoomID=" + roomId);
-  req.setRequestHeader("Content-Type", "application/json");
-  req.setRequestHeader("api-key", API_KEY);
-  req.send();
 };
 
 onMounted(() => {
