@@ -16,6 +16,9 @@ app.add_middleware(
 class Message(BaseModel):
     text: str
 
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
 
 @app.post("/message")
 def recieve_message(message: Message):
