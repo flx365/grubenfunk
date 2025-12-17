@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
@@ -20,6 +20,9 @@ app.add_middleware(
 
 class Message(BaseModel):
     text: str
+
+class UserCreate(BaseModel):
+    username: str
 
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
@@ -53,6 +56,29 @@ async def get_messages(RoomID: int):
         res = await client.get(
             f"{BASE_URL}/messages",
             params={"RoomID": RoomID},
+            headers={"api-key": API_KEY}
+        )
+    return res.json()
+
+# User erstellen
+@app.post("/user")
+async def create_user(user: UserCreate):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{BASE_URL}/user",
+            json={"Username": user.username},
+            headers={"api-key": API_KEY}
+        )
+    return response.json()
+
+# TODO: Test Zwecke noch nicht im Fronend implementiert
+# http://localhost:8000/users
+# User laden
+@app.get("/users")
+async def get_users():
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            f"{BASE_URL}/user",
             headers={"api-key": API_KEY}
         )
     return res.json()

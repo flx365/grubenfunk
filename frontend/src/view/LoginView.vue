@@ -1,36 +1,80 @@
 <script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
+
+const username = ref('')
+const loading = ref(false)
+const error = ref(null)
+
+
+const handleLogin = async () => {
+  //Leere Eingabe verhindern
+  if (!username.value.trim()) {
+    error.value = "Bitte einen Namen eingeben.";
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+
+  try {
+    // User im Backend anlegen (POST an Python)
+    const response = await fetch("http://localhost:8000/user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: username.value
+      })
+    });
+    const data = await response.json();
+    // Prüfen ob wir eine ID zurückbekommen haben
+    if (data.ID) {
+      // User Daten speichern für die ChatView
+      const userObject = {
+        id: data.ID,
+        name: username.value
+      };
+      localStorage.setItem("chat_user", JSON.stringify(userObject));
+      // Weiterleitung zum Chat
+      await router.push('/chat');
+    } else {
+      console.error("Server Antwort:", data);
+      error.value = "Fehler: Konnte User nicht anlegen.";
+    }
+  } catch (e) {
+    console.error(e);
+    error.value = "Verbindung zum Server fehlgeschlagen.";
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
   <div class="login-page">
     <div class="card">
-      <h2>Anmelden</h2>
+      <h2>Willkommen</h2>
 
       <div class="input-group username-group">
         <label for="username">Username</label>
         <input
           id="username"
+          v-model="username"
+          @keyup.enter="handleLogin"
           type="text"
           placeholder="Username"
+          :disabled="loading"
         />
       </div>
 
-      <div class="input-group password-group">
-        <label for="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          placeholder="Password"
-        />
-      </div>
-
-      <button type="button" class="btn btn-primary w-100">Anmelden</button>
-
-      <div class="footer">
-        Noch kein Konto?
-        <router-link to="/register" class="link">Jetzt registrieren</router-link>
-      </div>
+      <button type="button"
+              class="btn btn-primary w-100"
+              @click="handleLogin">
+        Chat betreten</button>
     </div>
   </div>
 </template>
@@ -83,26 +127,8 @@ h2 {
   border-color: #5b6bff;
 }
 
-.password-group {
-  position: relative;
-}
-
-.link {
-  text-decoration: none;
-  color: #4a5cff;
-}
-
 .btn {
   border-radius: 0;
 }
 
-.footer {
-  text-align: center;
-  margin-top: 18px;
-  font-size: 14px;
-}
-
-.footer .link {
-  margin-left: 4px;
-}
 </style>

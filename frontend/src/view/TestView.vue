@@ -3,8 +3,8 @@ import { useRouter } from 'vue-router'
 import {ref, onMounted} from "vue";
 
 const router = useRouter()
-const goToChat = () => {
-  router.push('/chat')
+const goToLogin = () => {
+  router.push('/login')
 }
 
 const backendResponse = ref(null)
@@ -29,8 +29,8 @@ onMounted(async () => {
     <pre>{{ backendResponse }}</pre>
   </div>
   <div class="container mt-4"> <div class="mb-4">
-      <button @click="goToChat" class="btn btn-primary">
-        Zum Chat gehen
+      <button @click="goToLogin" class="btn btn-primary">
+        Zum Login gehen
       </button>
     </div>
   </div>
