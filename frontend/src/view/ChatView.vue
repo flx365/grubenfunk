@@ -34,10 +34,15 @@ const selectRoom = async (roomId) => {
   }
 };
 
+// Logout
+const handleLogout = () => {
+  localStorage.removeItem("chat_user");
+  currentUser.value = null;
+  router.push('/login');
+};
+
 onMounted(() => {
-
   const storedUser = localStorage.getItem("chat_user");
-
   if (storedUser) {
     currentUser.value = JSON.parse(storedUser);
   } else {
@@ -71,6 +76,10 @@ onMounted(() => {
         <span>Account: </span>
         <span class="user-name">{{ currentUser.name }}</span>
         <span class="user-id">#{{ currentUser.id }}</span>
+        <span> | </span>
+        <button class="btn-logout" @click="handleLogout">
+        Abmelden
+      </button>
       </div>
 
       <h3>Chat</h3>
@@ -144,6 +153,19 @@ onMounted(() => {
 .user-id {
   color: #888;
   font-size: 0.8rem;
+}
+
+.btn-logout {
+  background: none;
+  border: 1px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-logout:hover {
+  background-color: #dc3545;
+  color: black;
 }
 
 </style>
