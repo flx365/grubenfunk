@@ -1,12 +1,14 @@
 <script setup>
 import ChatInput from '../components/ChatInput.vue'
 import {onMounted, ref} from 'vue';
+import router from "@/router/index.js";
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
 const rooms = ref([]);
 const messages = ref([]);
 const selectedRoomId = ref(null);
+const currentUser = ref(null);
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -33,6 +35,15 @@ const selectRoom = async (roomId) => {
 };
 
 onMounted(() => {
+
+  const storedUser = localStorage.getItem("chat_user");
+
+  if (storedUser) {
+    currentUser.value = JSON.parse(storedUser);
+  } else {
+    router.push('/login');
+  }
+
   loadRooms();
 });
 </script>
@@ -42,7 +53,6 @@ onMounted(() => {
 
     <div class="sidebar">
       <h3>Räume</h3>
-
       <ul>
         <li
           v-for="room in rooms"
@@ -56,6 +66,13 @@ onMounted(() => {
     </div>
 
     <div class="chat-area">
+
+      <div v-if="currentUser" class="user-info">
+        <span>Account: </span>
+        <span class="user-name">{{ currentUser.name }}</span>
+        <span class="user-id">#{{ currentUser.id }}</span>
+      </div>
+
       <h3>Chat</h3>
 
       <div v-if="!selectedRoomId">
@@ -108,4 +125,25 @@ onMounted(() => {
   margin-bottom: 10px;
   border-bottom: 1px solid #ccc;
 }
+
+.user-info {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background-color: #e9ecef;
+  padding: 5px 12px;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.user-name {
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.user-id {
+  color: #888;
+  font-size: 0.8rem;
+}
+
 </style>
