@@ -60,8 +60,9 @@ async def get_messages(RoomID: int):
         )
     return res.json()
 
+# Wird nicht benutzt dient nur als test
 # User erstellen
-@app.post("/user")
+@app.post("/userv2")
 async def create_user(user: UserCreate):
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -71,8 +72,7 @@ async def create_user(user: UserCreate):
         )
     return response.json()
 
-# TODO: Test Zwecke noch nicht im Fronend implementiert
-# http://localhost:8000/users
+# Wird nicht benutzt dient nur als test
 # User laden
 @app.get("/users")
 async def get_users():
@@ -82,3 +82,40 @@ async def get_users():
             headers={"api-key": API_KEY}
         )
     return res.json()
+
+# Erstellt einen neuen User oder loggt einen bestehenden ein
+@app.post("/user")
+async def create_or_login_user(user: UserCreate):
+    async with httpx.AsyncClient() as client:
+        try:
+            # alle existierenden User
+            get_response = await client.get(
+                f"{BASE_URL}/user",
+                headers={"api-key": API_KEY}
+            )
+
+            if get_response.status_code == 200:
+                existing_users = get_response.json()
+
+                # Durchsuche die Liste nach dem Namen
+                for existing_u in existing_users:
+                    if existing_u.get("Name") == user.username:
+                        print(f"Login: User '{user.username}' gefunden. ID: {existing_u.get('ID')}")
+                        return {
+                            "ID": existing_u.get("ID"),
+                            "Name": existing_u.get("Name"),
+                            "message": "User logged in successfully"
+                        }
+
+        except Exception as e:
+            print(f"Fehler beim Abrufen der User-Liste: {e}")
+
+        # Wenn User NICHT gefunden wurde -> Neu anlegen
+        print(f"Register: User '{user.username}' nicht gefunden. Erstelle neu...")
+
+        create_response = await client.post(
+            f"{BASE_URL}/user",
+            json={"Username": user.username},
+            headers={"api-key": API_KEY}
+        )
+        return create_response.json()

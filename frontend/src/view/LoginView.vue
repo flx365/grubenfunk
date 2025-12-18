@@ -36,7 +36,7 @@ const handleLogin = async () => {
       // User Daten speichern für die ChatView
       const userObject = {
         id: data.ID,
-        name: username.value
+        name: data.Name || username.value
       };
       localStorage.setItem("chat_user", JSON.stringify(userObject));
       // Weiterleitung zum Chat
