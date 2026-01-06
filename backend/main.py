@@ -30,6 +30,9 @@ API_KEY = os.getenv("API_KEY")
 if not BASE_URL or not API_KEY:
     raise ValueError("FEHLER: .env Datei fehlt oder ist unvollständig! Siehe .env.example")
 
+# WebSocket-Verbindung speichern
+active_connections = {}
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
@@ -119,3 +122,31 @@ async def create_or_login_user(user: UserCreate):
             headers={"api-key": API_KEY}
         )
         return create_response.json()
+
+# WebSocket Verbindung aufbauen
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    # WebSocket Verbindung akzeptieren
+    await websocket.accept()
+
+    # User zur aktiven Verbindungsliste hinzufügen
+    if user_id not in active_connections:
+        active_connections[user_id] = []
+    active_connections[user_id].append(websocket)
+    print(f"User {user_id} verbunden")
+
+    try:
+        # Endlosschleife um die Verbindung offen halten
+        while True:
+            # Nachricht vom Client empfangen
+            # TODO: Wenn data ankommt, passiert erst mal nichts weiter
+            data = await websocket.receive_text()
+            print(f"Nachricht von User {user_id}: {data}")
+
+    except WebSocketDisconnect:
+        # User entfernen, wenn die Verbindung getrennt wurde
+        if user_id in active_connections:
+            active_connections[user_id].remove(websocket)
+            if not active_connections[user_id]:
+                del active_connections[user_id]
+        print(f"User {user_id} getrennt")

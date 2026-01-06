@@ -1,5 +1,6 @@
 <script setup>
 import ChatInput from '../components/ChatInput.vue'
+import {closeWebSocket, createWebSocket} from '../services/websocket.js';
 import {onMounted, ref} from 'vue';
 import router from "@/router/index.js";
 
@@ -38,6 +39,7 @@ const selectRoom = async (roomId) => {
 const handleLogout = () => {
   localStorage.removeItem("chat_user");
   currentUser.value = null;
+  closeWebSocket()
   router.push('/login');
 };
 
@@ -45,6 +47,7 @@ onMounted(() => {
   const storedUser = localStorage.getItem("chat_user");
   if (storedUser) {
     currentUser.value = JSON.parse(storedUser);
+    createWebSocket(currentUser.value.id);
   } else {
     router.push('/login');
   }
