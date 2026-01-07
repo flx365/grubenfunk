@@ -10,6 +10,7 @@ const rooms = ref([]);
 const messages = ref([]);
 const selectedRoomId = ref(null);
 const currentUser = ref(null);
+const newRoomName = ref("");
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -32,6 +33,32 @@ const selectRoom = async (roomId) => {
     messages.value = await response.json();
   } catch (error) {
     console.error("Fehler beim Laden der Nachrichten:", error);
+  }
+};
+
+// Neuen Raum erstellen
+const createRoom = async () => {
+  // Sicherheitscheck
+  if (!currentUser.value) return;
+
+  try{
+    const response = await fetch(`${API_BASE_URL}/rooms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newRoomName.value,
+        user_id: currentUser.value.id
+      })
+    })
+
+    const data = await response.json();
+    console.log("Raum erstellt:", data);
+    // Eingabefeld wieder leeren für den nächsten Raum
+    newRoomName.value = "";
+    // Liste aktualisieren
+    await loadRooms();
+  }catch(error){
+    console.error("Fehler beim Erstellen des Raums:", error);
   }
 };
 
@@ -61,6 +88,17 @@ onMounted(() => {
 
     <div class="sidebar">
       <h3>Räume</h3>
+
+      <div class="create-room-section">
+        <input
+          v-model="newRoomName"
+          placeholder="Neuer Raum erstellen..."
+          @keyup.enter="createRoom"
+        />
+        <button @click="createRoom">+</button>
+      </div>
+      <hr />
+
       <ul>
         <li
           v-for="room in rooms"
@@ -119,6 +157,18 @@ onMounted(() => {
   width: 200px;
   border-right: 1px solid black;
   padding: 10px;
+}
+
+.create-room-section {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.create-room-section input {
+  flex: 1;
+  padding: 4px;
+  width: 100%;
 }
 
 .chat-area {

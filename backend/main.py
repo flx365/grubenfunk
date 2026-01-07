@@ -24,6 +24,10 @@ class Message(BaseModel):
 class UserCreate(BaseModel):
     username: str
 
+class RoomCreate(BaseModel):
+    name: str
+    user_id: int
+
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
 
@@ -48,6 +52,20 @@ async def get_rooms():
     async with httpx.AsyncClient() as client:
         res = await client.get(
             f"{BASE_URL}/rooms",
+            headers={"api-key": API_KEY}
+        )
+    return res.json()
+
+# Erstellen von Räumen
+@app.post("/rooms")
+async def create_room(room: RoomCreate):
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            f"{BASE_URL}/rooms",
+            json={
+                "Roomname": room.name,
+                "UserID": room.user_id
+            },
             headers={"api-key": API_KEY}
         )
     return res.json()
