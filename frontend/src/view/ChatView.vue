@@ -11,6 +11,7 @@ const messages = ref([]);
 const selectedRoomId = ref(null);
 const currentUser = ref(null);
 const newRoomName = ref("");
+const isSidebarOpen = ref(true);
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -70,6 +71,10 @@ const handleLogout = () => {
   router.push('/login');
 };
 
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value;
+};
+
 onMounted(() => {
   const storedUser = localStorage.getItem("chat_user");
   if (storedUser) {
@@ -86,7 +91,14 @@ onMounted(() => {
 <template>
   <div class="main-container">
 
-    <div class="sidebar">
+    <button
+      class="sidebar-toggle"
+      @click="toggleSidebar"
+    >
+      {{ isSidebarOpen ? '<' : '>' }}
+    </button>
+
+    <div class="sidebar" :class="{ closed: !isSidebarOpen }">
       <h3>Räume</h3>
 
       <div class="create-room-section">
@@ -99,7 +111,7 @@ onMounted(() => {
       </div>
       <hr />
 
-      <ul>
+      <ul class="rooms-list">
         <li
           v-for="room in rooms"
           :key="room.ID"
@@ -151,12 +163,45 @@ onMounted(() => {
 .main-container {
   display: flex;
   height: 100vh;
+  position: relative;
 }
 
 .sidebar {
-  width: 200px;
+  width: 240px;
+  min-width: 240px;
   border-right: 1px solid black;
   padding: 10px;
+  transition: transform 0.25s ease, width 0.25s ease, padding 0.25s ease;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.closed {
+  width: 0;
+  min-width: 0;
+  padding: 10px 0;
+  overflow: hidden;
+  transform: translateX(-100%);
+  border-right: none;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  background: #343a40;
+  color: #f8f9fa;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-toggle:hover {
+  background: #212529;
 }
 
 .create-room-section {
@@ -174,6 +219,15 @@ onMounted(() => {
 .chat-area {
   flex: 1;
   padding: 10px;
+  overflow-y: auto;
+  margin-left: 40px;
+}
+
+.rooms-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
   overflow-y: auto;
 }
 
