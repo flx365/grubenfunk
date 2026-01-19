@@ -116,7 +116,7 @@ onMounted(() => {
           v-for="room in rooms"
           :key="room.ID"
           @click="selectRoom(room.ID)"
-          class="room-item"
+          :class="['room-item', { active: room.ID === selectedRoomId }]"
         >
           {{ room.Name }}
         </li>
@@ -235,6 +235,16 @@ onMounted(() => {
   cursor: pointer;
   margin-bottom: 5px;
   color: blue;
+}
+
+.room-item:hover {
+  background-color: #e9ecef;
+}
+
+.room-item.active {
+  background-color: #d0ebff;
+  color: #1c7ed6;
+  font-weight: 700;
 }
 
 .message-item {
