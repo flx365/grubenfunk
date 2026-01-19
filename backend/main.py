@@ -37,10 +37,6 @@ if not BASE_URL or not API_KEY:
 # WebSocket-Verbindung speichern
 active_connections = {}
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
 @app.post("/message")
 def recieve_message(message: Message):
     print("Message recieved: ", message.text)
