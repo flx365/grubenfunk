@@ -1,7 +1,7 @@
 <script setup>
 import ChatInput from '../components/ChatInput.vue'
 import {closeWebSocket, createWebSocket} from '../services/websocket.js';
-import {onMounted, ref} from 'vue';
+import {computed, onMounted, ref} from 'vue';
 import router from "@/router/index.js";
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -12,6 +12,9 @@ const selectedRoomId = ref(null);
 const currentUser = ref(null);
 const newRoomName = ref("");
 const isSidebarOpen = ref(true);
+const currentRoom = computed(() =>
+  rooms.value.find((room) => room.ID === selectedRoomId.value) || null
+);
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -135,7 +138,12 @@ onMounted(() => {
       </button>
       </div>
 
-      <h3>Chat</h3>
+      <div class="chat-header">
+        <h3 v-if="currentRoom">{{ currentRoom.Name }}</h3>
+        <div v-if="currentRoom" class="room-info">
+          (ID: {{ currentRoom.ID }})
+        </div>
+      </div>
 
       <div v-if="!selectedRoomId">
         Links einen Raum anklicken.
@@ -221,6 +229,15 @@ onMounted(() => {
   padding: 10px;
   overflow-y: auto;
   margin-left: 40px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid;
+  margin-bottom: 12px;
 }
 
 .rooms-list {
