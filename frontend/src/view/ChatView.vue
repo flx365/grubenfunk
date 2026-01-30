@@ -12,6 +12,7 @@ const selectedRoomId = ref(null);
 const currentUser = ref(null);
 const newRoomName = ref("");
 const isSidebarOpen = ref(true);
+const unreadRoomIds = ref([]);
 const currentRoom = computed(() =>
   rooms.value.find((room) => room.ID === selectedRoomId.value) || null
 );
@@ -31,6 +32,7 @@ const loadRooms = async () => {
 const selectRoom = async (roomId) => {
   selectedRoomId.value = roomId;
   messages.value = [];
+  unreadRoomIds.value = unreadRoomIds.value.filter(id => id !== roomId);
   try {
     const response = await fetch(`${API_BASE_URL}/messages?RoomID=${roomId}`);
     if (!response.ok) throw new Error('Netzwerk Fehler');
@@ -81,6 +83,12 @@ const handleIncomingMessage = (message) => {
     // Nachricht in die Message-Array pushen
     messages.value.push(message);
   }
+  else {
+    // Raum als ungelesen markieren
+    if (!unreadRoomIds.value.includes(message.RoomID)) {
+        unreadRoomIds.value.push(message.RoomID);
+    }
+  }
 };
 
 const toggleSidebar = () => {
@@ -128,9 +136,15 @@ onMounted(() => {
           v-for="room in rooms"
           :key="room.ID"
           @click="selectRoom(room.ID)"
-          :class="['room-item', { active: room.ID === selectedRoomId }]"
+          :class="[
+            'room-item',
+            { active: room.ID === selectedRoomId },
+            { unread: unreadRoomIds.includes(room.ID) }
+          ]"
         >
           {{ room.Name }}
+
+          <span v-if="unreadRoomIds.includes(room.ID)" class="unread-dot">•</span>
         </li>
       </ul>
     </div>
@@ -314,6 +328,19 @@ onMounted(() => {
 .btn-logout:hover {
   background-color: #dc3545;
   color: black;
+}
+
+.room-item.unread {
+  font-weight: bold;
+  color: #d63384;
+  background-color: #fff0f6;
+}
+
+.unread-dot {
+  float: right;
+  color: red;
+  font-size: 1.2em;
+  line-height: 1;
 }
 
 </style>
