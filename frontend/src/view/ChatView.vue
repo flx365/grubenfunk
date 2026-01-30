@@ -79,6 +79,14 @@ const handleLogout = () => {
 // Empfange eingehende WebSocket Nachrichten und fügt sie dem aktuell geöffneten Raum hinzu
 const handleIncomingMessage = (message) => {
   console.log("Nachricht empfangen:", message);
+
+  // Benachrichtigungston für neue Nachrichten
+  if (currentUser.value && message.UserID !== currentUser.value.id) {
+    const audio = new Audio('/notification.mp3');
+    audio.volume = 0.5;
+    audio.play();
+  }
+
   if (selectedRoomId.value && message.RoomID === selectedRoomId.value) {
     // Nachricht in die Message-Array pushen
     messages.value.push(message);
