@@ -2,40 +2,37 @@
   <div class="message-container">
     <input
       v-model="text"
-      type="text"
+      @keyup.enter="sendMessage"
       placeholder="Nachricht eingeben..."
       class="input"
     />
     <button @click="sendMessage" class="btn">
       Senden
     </button>
-
-    <p v-if="response">{{ response }}</p>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
+const props = defineProps(['roomId', 'userId', 'userName'])
 const text = ref("")
-const response = ref(null)
 
 async function sendMessage() {
-  if (!text.value) return
+  if (!text.value.trim() || !props.roomId || !props.userId) return
 
-  const res = await fetch("http://localhost:8000/message", {
+  // HTTP POST an Backend
+  await fetch("http://127.0.0.1:8000/message", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      text: text.value
+      text: text.value,
+      room_id: props.roomId,
+      user_id: props.userId,
+      username: props.userName
     })
   })
-
-  const data = await res.json()
-  response.value = "Server Antwort: " + JSON.stringify(data)
-  text.value = ""  // Eingabefeld leeren nach dem Senden
+  text.value = ""
 }
 </script>
 

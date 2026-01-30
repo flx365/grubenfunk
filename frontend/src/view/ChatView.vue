@@ -74,6 +74,15 @@ const handleLogout = () => {
   router.push('/login');
 };
 
+// Empfange eingehende WebSocket Nachrichten und fügt sie dem aktuell geöffneten Raum hinzu
+const handleIncomingMessage = (message) => {
+  console.log("Nachricht empfangen:", message);
+  if (selectedRoomId.value && message.RoomID === selectedRoomId.value) {
+    // Nachricht in die Message-Array pushen
+    messages.value.push(message);
+  }
+};
+
 const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value;
 };
@@ -82,7 +91,7 @@ onMounted(() => {
   const storedUser = localStorage.getItem("chat_user");
   if (storedUser) {
     currentUser.value = JSON.parse(storedUser);
-    createWebSocket(currentUser.value.id);
+    createWebSocket(currentUser.value.id, handleIncomingMessage);
   } else {
     router.push('/login');
   }
@@ -155,7 +164,11 @@ onMounted(() => {
       </div>
 
       <div>
-        <ChatInput/>
+        <ChatInput
+           :room-id="selectedRoomId"
+           :user-id="currentUser?.id"
+           :user-name="currentUser?.name"
+        />
       </div>
     </div>
 

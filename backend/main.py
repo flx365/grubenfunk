@@ -28,6 +28,12 @@ class RoomCreate(BaseModel):
     name: str
     user_id: int
 
+class MessageCreate(BaseModel):
+    room_id: int
+    text: str
+    user_id: int
+    username: str
+
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
 
@@ -36,11 +42,6 @@ if not BASE_URL or not API_KEY:
 
 # WebSocket-Verbindung speichern
 active_connections = {}
-
-@app.post("/message")
-def recieve_message(message: Message):
-    print("Message recieved: ", message.text)
-    return{"status": "ok", "recieved": message.text}
 
 # Räume laden
 @app.get("/rooms")
@@ -152,8 +153,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     try:
         # Endlosschleife um die Verbindung offen halten
         while True:
-            # Nachricht vom Client empfangen
-            # TODO: Wenn data ankommt, passiert erst mal nichts weiter
             data = await websocket.receive_text()
             print(f"Nachricht von User {user_id}: {data}")
 
@@ -164,3 +163,40 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
             if not active_connections[user_id]:
                 del active_connections[user_id]
         print(f"User {user_id} getrennt")
+
+# Nachricht speichern und broadcastet sie an alle verbundenen WebSocket-Clients
+@app.post("/message")
+async def send_message(message: MessageCreate):
+    # An API senden (Datenbank speichern)
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            f"{BASE_URL}/messages",
+            json={
+                "RoomID": message.room_id,
+                "UserID": message.user_id,
+                "Message": message.text
+            },
+            headers={"api-key": API_KEY}
+        )
+    # Prüfen ob Speichern erfolgreich war
+    if res.status_code == 200 or res.status_code == 201:
+        # Broadcast an alle aktiven WebSockets
+        broadcast_data = {
+            "RoomID": message.room_id,
+            "UserID": message.user_id,
+            "Name": message.username,
+            "Text": message.text
+        }
+
+        # Durch alle verbundenen User
+        for user_id, connections in active_connections.items():
+            for connection in connections:
+                try:
+                    await connection.send_json(broadcast_data)
+                except Exception as e:
+                    print(f"Fehler beim Senden an {user_id}: {e}")
+
+        return {"status": "success", "data": broadcast_data}
+    else:
+        # Fehlerbehandlung wenn API streikt
+        return {"status": "error", "details": res.text}
