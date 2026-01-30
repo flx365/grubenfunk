@@ -139,22 +139,17 @@ onMounted(() => {
       </div>
 
       <div class="chat-header">
-        <h3 v-if="currentRoom">{{ currentRoom.Name }}</h3>
-        <div v-if="currentRoom" class="room-info">
-          (ID: {{ currentRoom.ID }})
-        </div>
+        <template v-if="currentRoom">
+          <h3>{{ currentRoom.Name }}</h3>
+          <div class="room-info">(ID: {{ currentRoom.ID }})</div>
+        </template>
+        <template v-else>
+          <div class="no-room">Links einen Raum anklicken</div>
+        </template>
       </div>
 
-      <div v-if="!selectedRoomId">
-        Links einen Raum anklicken.
-      </div>
-
-      <div v-else>
-        <div
-          v-for="msg in messages"
-          :key="msg.ID"
-          class="message-item"
-        >
+      <div class="messages-area">
+        <div v-for="msg in messages" :key="msg.ID" class="message-item">
           <strong>{{ msg.Name }}:</strong> {{ msg.Text }}
         </div>
       </div>
@@ -238,6 +233,12 @@ onMounted(() => {
   padding-bottom: 10px;
   border-bottom: 2px solid;
   margin-bottom: 12px;
+}
+
+.no-room {
+  font-size: 1.17em; /* Standardgröße für h3 */
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .rooms-list {
