@@ -45,11 +45,43 @@ const selectRoom = async (roomId) => {
   }
 };
 
-// Hilfsfunktion: Datum formatieren
+// Hilfsfunktion: Gibt das Datum zurück
+const formatDate = (timeString) => {
+  if (!timeString) return "";
+  const date = new Date(timeString);
+  return date.toLocaleDateString({
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// Hilfsfunktion: Gibt die Uhrzeit zurück
 const formatTime = (timeString) => {
   if (!timeString) return "";
   const date = new Date(timeString);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString([],{
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Datumstrenner angezeigt
+const shouldShowDateSeparator = (index) => {
+  // Die allererste Nachricht bekommt immer ein Datum
+  if (index === 0) return true;
+
+  // Aktuelle und vorherige Nachricht vergleichen
+  const currentMsgTime = messages.value[index].Time;
+  const prevMsgTime = messages.value[index - 1].Time;
+
+  if (!currentMsgTime || !prevMsgTime) return false;
+
+  const currentDate = formatDate(currentMsgTime);
+  const prevDate = formatDate(prevMsgTime);
+
+  // Wenn die Datums-Strings unterschiedlich sind -> Trenner anzeigen
+  return currentDate !== prevDate;
 };
 
 // Neuen Raum erstellen
@@ -194,9 +226,17 @@ onMounted(() => {
       </div>
 
       <div class="messages-area">
-        <div v-for="msg in messages" :key="msg.ID || msg.Time" class="message-item">
-          <strong>{{ msg.Name }}:</strong> {{ msg.Text }}
-          <span class="time-stamp">{{ formatTime(msg.Time) }}</span>
+        <div v-for="(msg, index) in messages" :key="msg.ID || index">
+
+          <div v-if="shouldShowDateSeparator(index)" class="date-separator">
+            <span>{{ formatDate(msg.Time) }}</span>
+          </div>
+
+          <div class="message-item">
+            <strong>{{ msg.Name }}:</strong> {{ msg.Text }}
+            <span class="time-stamp">{{ formatTime(msg.Time) }}</span>
+          </div>
+
         </div>
       </div>
 
@@ -318,6 +358,24 @@ onMounted(() => {
 .message-item {
   margin-bottom: 10px;
   border-bottom: 1px solid #ccc;
+}
+
+
+.date-separator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0 10px 0;
+  opacity: 0.8;
+}
+
+.date-separator span {
+  background-color: #e1e4e8;
+  color: #555;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
 }
 
 .time-stamp {
