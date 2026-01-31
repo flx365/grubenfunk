@@ -2,6 +2,7 @@
 import ChatInput from '../components/ChatInput.vue'
 import {closeWebSocket, createWebSocket} from '../services/websocket.js';
 import {computed, onMounted, ref} from 'vue';
+import { formatDate, formatTime } from '../services/dateService.js';
 import router from "@/router/index.js";
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -43,27 +44,6 @@ const selectRoom = async (roomId) => {
   } catch (error) {
     console.error("Fehler beim Laden der Nachrichten:", error);
   }
-};
-
-// Hilfsfunktion: Gibt das Datum zurück
-const formatDate = (timeString) => {
-  if (!timeString) return "";
-  const date = new Date(timeString);
-  return date.toLocaleDateString({
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-};
-
-// Hilfsfunktion: Gibt die Uhrzeit zurück
-const formatTime = (timeString) => {
-  if (!timeString) return "";
-  const date = new Date(timeString);
-  return date.toLocaleTimeString([],{
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 };
 
 // Datumstrenner angezeigt
