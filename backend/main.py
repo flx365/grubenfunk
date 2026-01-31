@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import httpx
 from dotenv import load_dotenv
 import os
+from datetime import datetime
 
 # .env-Datei erstellen siehe .env.example
 load_dotenv()
@@ -180,12 +181,16 @@ async def send_message(message: MessageCreate):
         )
     # Prüfen ob Speichern erfolgreich war
     if res.status_code == 200 or res.status_code == 201:
+
+        formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # Broadcast an alle aktiven WebSockets
         broadcast_data = {
             "RoomID": message.room_id,
             "UserID": message.user_id,
             "Name": message.username,
-            "Text": message.text
+            "Text": message.text,
+            "Time": formatted_time
         }
 
         # Durch alle verbundenen User

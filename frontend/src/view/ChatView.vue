@@ -45,6 +45,13 @@ const selectRoom = async (roomId) => {
   }
 };
 
+// Hilfsfunktion: Datum formatieren
+const formatTime = (timeString) => {
+  if (!timeString) return "";
+  const date = new Date(timeString);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 // Neuen Raum erstellen
 const createRoom = async () => {
   // Sicherheitscheck
@@ -187,8 +194,9 @@ onMounted(() => {
       </div>
 
       <div class="messages-area">
-        <div v-for="msg in messages" :key="msg.ID" class="message-item">
+        <div v-for="msg in messages" :key="msg.ID || msg.Time" class="message-item">
           <strong>{{ msg.Name }}:</strong> {{ msg.Text }}
+          <span class="time-stamp">{{ formatTime(msg.Time) }}</span>
         </div>
       </div>
 
@@ -310,6 +318,11 @@ onMounted(() => {
 .message-item {
   margin-bottom: 10px;
   border-bottom: 1px solid #ccc;
+}
+
+.time-stamp {
+  font-size: 0.75rem;
+  color: #999;
 }
 
 .user-info {
