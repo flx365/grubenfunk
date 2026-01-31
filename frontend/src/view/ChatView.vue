@@ -16,6 +16,9 @@ const unreadRoomIds = ref([]);
 const currentRoom = computed(() =>
   rooms.value.find((room) => room.ID === selectedRoomId.value) || null
 );
+const unreadRoomsCount = computed(() => {
+  return Object.keys(unreadRoomIds.value).length;
+});
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -124,6 +127,10 @@ onMounted(() => {
       @click="toggleSidebar"
     >
       {{ isSidebarOpen ? '<' : '>' }}
+
+      <span v-if="unreadRoomsCount > 0" class="notification-badge">
+        {{ unreadRoomsCount }}
+      </span>
     </button>
 
     <div class="sidebar" :class="{ closed: !isSidebarOpen }">
@@ -349,6 +356,22 @@ onMounted(() => {
   color: red;
   font-size: 1.2em;
   line-height: 1;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border: 1px solid white;
+  min-width: 18px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 </style>
