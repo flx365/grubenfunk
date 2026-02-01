@@ -5,7 +5,7 @@ import httpx
 from dotenv import load_dotenv
 import os
 from datetime import datetime
-import asyncio # da die Uni API keine Batch-Operationen unterstützen
+import sqlite3
 
 # .env-Datei erstellen siehe .env.example
 load_dotenv()
@@ -49,6 +49,28 @@ if not BASE_URL or not API_KEY:
 # WebSocket-Verbindung speichern
 active_connections = {}
 
+# --- DATENBANK SETUP (SQLite) ---
+DB_NAME = "local_cache.db"
+@app.on_event("startup")
+def startup_db():
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS room_cursor (
+                    user_id INTEGER,
+                    room_id INTEGER,
+                    last_read_msg_id INTEGER,
+                    PRIMARY KEY (user_id, room_id)
+                )
+            """)
+            conn.commit()
+        print("SQLite Datenbank (synchron) initialisiert.")
+    except Exception as e:
+        print(f"Fehler beim Initialisieren der DB: {e}")
+
+
+# --- API ---
 # Räume laden
 @app.get("/rooms")
 async def get_rooms():
@@ -211,104 +233,149 @@ async def send_message(message: MessageCreate):
         # Fehlerbehandlung wenn API streikt
         return {"status": "error", "details": res.text}
 
-# TODO: Performance-Problem! Hier feuern wir (Anzahl der Nachrichten in dem Raum) Requests ab.
 @app.post("/rooms/mark_read")
 async def mark_room_as_read(data: MarkReadRequest):
     async with httpx.AsyncClient() as client:
         # Alle Nachrichten des Raums laden
-        res = await client.get(
-            f"{BASE_URL}/messages",
-            params={"RoomID": data.room_id},
-            headers={"api-key": API_KEY}
-        )
+        messages = await api_fetch_messages(client, data.room_id)
 
-        if res.status_code != 200:
+        if messages is None:
             return {"status": "error", "details": "Could not fetch messages"}
+        if not messages:
+            return {"status": "success", "message": "No messages"}
+        messages.sort(key=lambda x: x['MessageID'])
 
-        messages = res.json()
+        # IDs ermitteln
+        current_last_msg_id = messages[-1].get("MessageID")
+        old_last_msg_id = db_get_last_read(data.user_id, data.room_id)
 
-        # Diese Funktion verarbeitet eine einzelne Nachricht
-        async def process_message(msg):
+        # Abbruch, wenn nichts Neues
+        if current_last_msg_id <= old_last_msg_id:
+            return {"status": "success", "message": "Nothing new to mark"}
 
-            msg_id = msg.get('MessageID')
+        # Lokal speichern
+        db_update_last_read(data.user_id, data.room_id, current_last_msg_id)
 
-            # Prüfen: Wer hat die Nachricht schon gelesen?
-            read_res = await client.get(
-                f"{BASE_URL}/readconfirmation",
-                params={"MessageID": msg_id},
-                headers={"api-key": API_KEY}
-            )
+        # Sync mit PHP API (Delta Logic)
+        new_messages = [m for m in messages if m['MessageID'] > old_last_msg_id]
 
-            already_read = False
-            if read_res.status_code == 200:
-                readers = read_res.json()
-                # Prüfen ob unsere UserID schon in der Liste ist
-                for reader in readers:
-                    if reader.get('UserID') == data.user_id:
-                        already_read = True
-                        break
+        if new_messages:
+            for msg in new_messages:
+                msg_id = msg.get('MessageID')
 
-            # Wenn noch nicht gelesen -> POST senden
-            if not already_read:
-                await client.post(
-                    f"{BASE_URL}/readconfirmation",
-                    json={
-                        "UserID": data.user_id,
-                        "MessageID": msg_id
-                    },
-                    headers={"api-key": API_KEY}
-                )
+                # Check: Hat API das schon?
+                already_read = await api_check_read_status(client, msg_id, data.user_id)
 
-        # Alle Nachrichten PARALLEL verarbeiten
-        tasks = [process_message(msg) for msg in messages]
+                # Wenn nicht, senden
+                if not already_read:
+                    await api_send_read_confirmation(client, data.user_id, msg_id)
 
-        # Wir warten, bis alle Tasks fertig sind
-        await asyncio.gather(*tasks)
+    return {
+        "status": "success",
+        "last_read_id": current_last_msg_id,
+        "synced_messages": len(new_messages)
+    }
 
-    return {"status": "success", "message": "All messages processed"}
-
-# TODO: Performance-Problem! Wir feuern hier (2 * Anzahl der Räume) Requests ab.
 @app.get("/rooms/unread/last_message")
 async def get_unread_rooms_last_message(user_id: int):
     unread_room_ids = []
 
     async with httpx.AsyncClient() as client:
         # Alle Räume laden
-        rooms_res = await client.get(
-            f"{BASE_URL}/rooms",
-            headers={"api-key": API_KEY})
-        if rooms_res.status_code != 200:
+        rooms = await api_fetch_rooms(client)
+        if not rooms:
             return {"status": "error", "details": "Could not load rooms"}
 
-        rooms = rooms_res.json()
-
+        # Durch Räume loopen
         for room in rooms:
             room_id = room["ID"]
 
-            # Alle Nachrichten laden, aber nur die letzte nehmen
-            msg_res = await client.get(
-                f"{BASE_URL}/messages",
-                params={"RoomID": room_id},
-                headers={"api-key": API_KEY})
-            if msg_res.status_code != 200:
-                continue
-
-            messages = msg_res.json()
+            # Nachrichten holen
+            messages = await api_fetch_messages(client, room_id)
             if not messages:
                 continue
+            messages.sort(key=lambda x: x['MessageID'])
 
-            last_msg = messages[-1]  # letzte Nachricht
+            last_msg = messages[-1]
+            last_msg_id = last_msg["MessageID"]
+
+            # Eigene Nachrichten ignorieren
             if last_msg["UserID"] == user_id:
-                continue  # eigene Nachricht → Raum gelesen
+                continue
 
-            # Prüfen, ob User die letzte Nachricht gelesen hat
-            read_res = await client.get(
-                f"{BASE_URL}/readconfirmation",
-                params={"MessageID": last_msg["MessageID"]},
-                headers={"api-key": API_KEY})
-            readers = read_res.json() if read_res.status_code == 200 else []
+            # Lokalen Stand holen (SQLite)
+            local_read_id = db_get_last_read(user_id, room_id)
 
-            if not any(r["UserID"] == user_id for r in readers):
+            # Vergleich
+            if last_msg_id > local_read_id:
                 unread_room_ids.append(room_id)
 
-        return {"unread_room_ids": unread_room_ids}
+    return {"unread_room_ids": unread_room_ids}
+
+
+# Holt die letzte gelesene MessageID aus der lokalen DB
+def db_get_last_read(user_id: int, room_id: int) -> int:
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT last_read_msg_id FROM room_cursor WHERE user_id = ? AND room_id = ?",
+                (user_id, room_id)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else 0
+    except Exception as e:
+        print(f"DB Read Error: {e}")
+        return 0
+
+# Speichert die neue MessageID in der lokalen DB
+def db_update_last_read(user_id: int, room_id: int, msg_id: int):
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO room_cursor (user_id, room_id, last_read_msg_id) 
+                VALUES (?, ?, ?)
+            """, (user_id, room_id, msg_id))
+            conn.commit()
+    except Exception as e:
+        print(f"DB Write Error: {e}")
+
+# Lädt alle Räume von der PHP API
+async def api_fetch_rooms(client: httpx.AsyncClient):
+    res = await client.get(f"{BASE_URL}/rooms", headers={"api-key": API_KEY})
+    if res.status_code == 200:
+        return res.json()
+    return []
+
+# Lädt Nachrichten eines Raums. Gibt None zurück bei Fehler
+async def api_fetch_messages(client: httpx.AsyncClient, room_id: int):
+    res = await client.get(
+        f"{BASE_URL}/messages",
+        params={"RoomID": room_id},
+        headers={"api-key": API_KEY}
+    )
+    if res.status_code == 200:
+        return res.json()
+    return None
+
+# Prüft via API, ob der User die Nachricht schon gelesen hat
+async def api_check_read_status(client: httpx.AsyncClient, msg_id: int, user_id: int) -> bool:
+    res = await client.get(
+        f"{BASE_URL}/readconfirmation",
+        params={"MessageID": msg_id},
+        headers={"api-key": API_KEY}
+    )
+    if res.status_code == 200:
+        readers = res.json()
+        # Prüfen ob UserID in der Liste ist
+        return any(r.get('UserID') == user_id for r in readers)
+    return False
+
+# Sendet POST Request an API
+async def api_send_read_confirmation(client: httpx.AsyncClient, user_id: int, msg_id: int):
+    await client.post(
+        f"{BASE_URL}/readconfirmation",
+        json={"UserID": user_id, "MessageID": msg_id},
+        headers={"api-key": API_KEY}
+    )
