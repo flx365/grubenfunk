@@ -38,11 +38,44 @@ const selectRoom = async (roomId) => {
   messages.value = [];
   unreadRoomIds.value = unreadRoomIds.value.filter(id => id !== roomId);
   try {
+    // Nachrichten laden
     const response = await fetch(`${API_BASE_URL}/messages?RoomID=${roomId}`);
     if (!response.ok) throw new Error('Netzwerk Fehler');
     messages.value = await response.json();
+
+    //Im Hintergrund: Backend sagen "Markiere alles als gelesen"
+    if (currentUser.value) {
+      fetch(`${API_BASE_URL}/rooms/mark_read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_id: roomId,
+          user_id: currentUser.value.id
+        })
+      }).then(() => {
+          console.log("Lesestatus synchronisiert");
+      }).catch(err => console.error("Fehler beim Markieren:", err));
+    }
+
   } catch (error) {
     console.error("Fehler beim Laden der Nachrichten:", error);
+  }
+};
+
+const fetchUnreadStatus = async () => {
+  if (!currentUser.value) return;
+
+  try {
+    // Ruft deinen neuen Backend-Endpunkt auf
+    const response = await fetch(`${API_BASE_URL}/rooms/unread/last_message?user_id=${currentUser.value.id}`);
+
+    if (response.ok) {
+      const data = await response.json();
+      // Überschreibt die lokale Liste mit dem echten Status vom Server
+      unreadRoomIds.value = data.unread_room_ids || [];
+    }
+  } catch (error) {
+    console.error("Fehler beim Laden des Ungelesen-Status:", error);
   }
 };
 
@@ -134,6 +167,7 @@ onMounted(() => {
     router.push('/login');
   }
 
+  fetchUnreadStatus();
   loadRooms();
 });
 </script>

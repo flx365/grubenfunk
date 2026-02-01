@@ -5,6 +5,7 @@ import httpx
 from dotenv import load_dotenv
 import os
 from datetime import datetime
+import asyncio # da die Uni API keine Batch-Operationen unterstützen
 
 # .env-Datei erstellen siehe .env.example
 load_dotenv()
@@ -34,6 +35,10 @@ class MessageCreate(BaseModel):
     text: str
     user_id: int
     username: str
+
+class MarkReadRequest(BaseModel):
+    room_id: int
+    user_id: int
 
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
@@ -205,3 +210,105 @@ async def send_message(message: MessageCreate):
     else:
         # Fehlerbehandlung wenn API streikt
         return {"status": "error", "details": res.text}
+
+# TODO: Performance-Problem! Hier feuern wir (Anzahl der Nachrichten in dem Raum) Requests ab.
+@app.post("/rooms/mark_read")
+async def mark_room_as_read(data: MarkReadRequest):
+    async with httpx.AsyncClient() as client:
+        # Alle Nachrichten des Raums laden
+        res = await client.get(
+            f"{BASE_URL}/messages",
+            params={"RoomID": data.room_id},
+            headers={"api-key": API_KEY}
+        )
+
+        if res.status_code != 200:
+            return {"status": "error", "details": "Could not fetch messages"}
+
+        messages = res.json()
+
+        # Diese Funktion verarbeitet eine einzelne Nachricht
+        async def process_message(msg):
+
+            msg_id = msg.get('MessageID')
+
+            # Prüfen: Wer hat die Nachricht schon gelesen?
+            read_res = await client.get(
+                f"{BASE_URL}/readconfirmation",
+                params={"MessageID": msg_id},
+                headers={"api-key": API_KEY}
+            )
+
+            already_read = False
+            if read_res.status_code == 200:
+                readers = read_res.json()
+                # Prüfen ob unsere UserID schon in der Liste ist
+                for reader in readers:
+                    if reader.get('UserID') == data.user_id:
+                        already_read = True
+                        break
+
+            # Wenn noch nicht gelesen -> POST senden
+            if not already_read:
+                await client.post(
+                    f"{BASE_URL}/readconfirmation",
+                    json={
+                        "UserID": data.user_id,
+                        "MessageID": msg_id
+                    },
+                    headers={"api-key": API_KEY}
+                )
+
+        # Alle Nachrichten PARALLEL verarbeiten
+        tasks = [process_message(msg) for msg in messages]
+
+        # Wir warten, bis alle Tasks fertig sind
+        await asyncio.gather(*tasks)
+
+    return {"status": "success", "message": "All messages processed"}
+
+# TODO: Performance-Problem! Wir feuern hier (2 * Anzahl der Räume) Requests ab.
+@app.get("/rooms/unread/last_message")
+async def get_unread_rooms_last_message(user_id: int):
+    unread_room_ids = []
+
+    async with httpx.AsyncClient() as client:
+        # Alle Räume laden
+        rooms_res = await client.get(
+            f"{BASE_URL}/rooms",
+            headers={"api-key": API_KEY})
+        if rooms_res.status_code != 200:
+            return {"status": "error", "details": "Could not load rooms"}
+
+        rooms = rooms_res.json()
+
+        for room in rooms:
+            room_id = room["ID"]
+
+            # Alle Nachrichten laden, aber nur die letzte nehmen
+            msg_res = await client.get(
+                f"{BASE_URL}/messages",
+                params={"RoomID": room_id},
+                headers={"api-key": API_KEY})
+            if msg_res.status_code != 200:
+                continue
+
+            messages = msg_res.json()
+            if not messages:
+                continue
+
+            last_msg = messages[-1]  # letzte Nachricht
+            if last_msg["UserID"] == user_id:
+                continue  # eigene Nachricht → Raum gelesen
+
+            # Prüfen, ob User die letzte Nachricht gelesen hat
+            read_res = await client.get(
+                f"{BASE_URL}/readconfirmation",
+                params={"MessageID": last_msg["MessageID"]},
+                headers={"api-key": API_KEY})
+            readers = read_res.json() if read_res.status_code == 200 else []
+
+            if not any(r["UserID"] == user_id for r in readers):
+                unread_room_ids.append(room_id)
+
+        return {"unread_room_ids": unread_room_ids}
