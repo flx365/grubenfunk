@@ -1,7 +1,7 @@
 <script setup>
 import ChatInput from '../components/ChatInput.vue'
 import {closeWebSocket, createWebSocket} from '../services/websocket.js';
-import {computed, onMounted, ref} from 'vue';
+import {computed, onMounted, ref, watch, nextTick} from 'vue';
 import { formatDate, formatTime } from '../services/dateService.js';
 import router from "@/router/index.js";
 
@@ -20,6 +20,7 @@ const currentRoom = computed(() =>
 const unreadRoomsCount = computed(() => {
   return Object.keys(unreadRoomIds.value).length;
 });
+const messagesAreaRef = ref(null);
 
 // Räume laden (via Fetch API)
 const loadRooms = async () => {
@@ -158,6 +159,24 @@ const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value;
 };
 
+// Scrollt den Nachrichtenbereich automatisch ganz nach unten
+const scrollToBottom = () => {
+  if (messagesAreaRef.value) {
+    messagesAreaRef.value.scrollTop = messagesAreaRef.value.scrollHeight;
+  }
+};
+
+// Watcher: Reagiert automatisch, sobald eine neue Nachricht hinzukommt
+watch(
+  () => messages.value.length,
+  async () => {
+    // Wartezeit bis Vue das HTML im Browser tatsächlich aktualisiert hat
+    await nextTick();
+    // Nachdem die neue Nachricht geladen wurde -> nach unten scrollen
+    scrollToBottom();
+  }
+);
+
 onMounted(() => {
   const storedUser = localStorage.getItem("chat_user");
   if (storedUser) {
@@ -239,7 +258,7 @@ onMounted(() => {
         </template>
       </div>
 
-      <div class="messages-area">
+      <div class="messages-area" ref="messagesAreaRef">
         <div v-for="(msg, index) in messages" :key="msg.ID || index">
 
           <div v-if="shouldShowDateSeparator(index)" class="date-separator">
@@ -254,7 +273,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div>
+      <div class="input-bar">
         <ChatInput
            :room-id="selectedRoomId"
            :user-id="currentUser?.id"
@@ -325,8 +344,10 @@ onMounted(() => {
 
 .chat-area {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 10px;
-  overflow-y: auto;
   margin-left: 40px;
 }
 
@@ -374,6 +395,9 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
   padding-right: 6px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .message-item {
@@ -477,6 +501,10 @@ onMounted(() => {
   min-width: 18px;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.input-bar {
+  margin-top: 12px;
 }
 
 </style>
