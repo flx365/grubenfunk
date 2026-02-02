@@ -369,11 +369,31 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.message-item {
-  margin-bottom: 10px;
-  border-bottom: 1px solid #ccc;
+.messages-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
 }
 
+.message-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.message-item strong {
+  margin-right: 4px;
+}
+
+.time-stamp {
+  margin-left: auto;
+}
 
 .date-separator {
   display: flex;
