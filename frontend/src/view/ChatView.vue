@@ -33,6 +33,25 @@ const loadRooms = async () => {
   }
 };
 
+// Markiert einen Raum als gelesen
+const markRoomAsRead = async (roomId) => {
+  if (!currentUser.value) return;
+  try {
+    await fetch(`${API_BASE_URL}/rooms/mark_read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room_id: roomId,
+        user_id: currentUser.value.id
+      })
+    });
+    // Lokale Anzeige sofort aktualisieren, damit Räume nicht als ungelesen makiert sind
+    unreadRoomIds.value = unreadRoomIds.value.filter(id => id !== roomId);
+  } catch (err) {
+    console.error("Fehler beim Markieren:", err);
+  }
+};
+
 // Nachrichten aus Räume laden (via Fetch API)
 const selectRoom = async (roomId) => {
   selectedRoomId.value = roomId;
@@ -44,20 +63,8 @@ const selectRoom = async (roomId) => {
     if (!response.ok) throw new Error('Netzwerk Fehler');
     messages.value = await response.json();
 
-    //Im Hintergrund: Backend sagen "Markiere alles als gelesen"
-    if (currentUser.value) {
-      fetch(`${API_BASE_URL}/rooms/mark_read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          room_id: roomId,
-          user_id: currentUser.value.id
-        })
-      }).then(() => {
-          console.log("Lesestatus synchronisiert");
-      }).catch(err => console.error("Fehler beim Markieren:", err));
-    }
-
+    // Alles als gelesen markieren
+    await markRoomAsRead(roomId);
   } catch (error) {
     console.error("Fehler beim Laden der Nachrichten:", error);
   }
@@ -146,8 +153,9 @@ const handleIncomingMessage = (message) => {
   if (selectedRoomId.value && message.RoomID === selectedRoomId.value) {
     // Nachricht in die Message-Array pushen
     messages.value.push(message);
-  }
-  else {
+    // Sofort als gelesen markieren, damit der Raum nicht als ungelesen zurückkommt
+    markRoomAsRead(message.RoomID);
+  } else {
     // Raum als ungelesen markieren
     if (!unreadRoomIds.value.includes(message.RoomID)) {
         unreadRoomIds.value.push(message.RoomID);
