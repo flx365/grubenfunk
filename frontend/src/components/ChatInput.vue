@@ -1,11 +1,15 @@
 <template>
   <div class="message-container">
-    <input
+    <textarea
+      ref="textareaRef"
       v-model="text"
-      @keyup.enter="sendMessage"
+      @input="autoResize"
+      @keydown.enter.exact.prevent="sendMessage"
+      @keydown.enter.shift.stop
       placeholder="Nachricht eingeben..."
       class="input"
-    />
+      rows="1"
+    ></textarea>
     <button @click="sendMessage" class="btn">
       Senden
     </button>
@@ -13,10 +17,25 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 
 const props = defineProps(['roomId', 'userId', 'userName'])
 const text = ref("")
+const textareaRef = ref(null)
+
+// Passt die Höhe des Textfelds dynamisch an den Inhalt an
+const autoResize = () => {
+  const el = textareaRef.value
+  if (!el) return
+
+  // Höhe kurz auf 'auto' setzen, um die echte scrollHeight zu berechnen (falls Text gelöscht wurde)
+  el.style.height = 'auto'
+  const maxHeight = 200
+  el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px'
+
+  // Scrollbar nur anzeigen, wenn Max-Höhe erreicht ist
+  el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+}
 
 async function sendMessage() {
   if (!text.value.trim() || !props.roomId || !props.userId) return
@@ -32,8 +51,17 @@ async function sendMessage() {
       username: props.userName
     })
   })
+
+  // Eingabefeld leeren und Größe zurücksetzen
   text.value = ""
+  await nextTick()
+  autoResize()
 }
+
+// Initiale Größenberechnung beim Laden
+onMounted(() => {
+    autoResize()
+})
 </script>
 
 <style scoped>
@@ -41,13 +69,19 @@ async function sendMessage() {
   display: flex;
   gap: 10px;
   margin-top: 20px;
+  align-items: flex-end;
 }
 
 .input {
-  padding: 8px;
+  padding: 8px 10px;
   flex: 1;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid #ccc;
+  resize: none;
+  line-height: 1.35;
+  font-family: inherit;
+  min-height: 40px;
+  max-height: 200px;
 }
 
 .btn {
